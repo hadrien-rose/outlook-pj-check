@@ -39,34 +39,57 @@ function texteEcrit(corps) {
   return garde.join("\n");
 }
 
+const EXT_IMAGE = /\.(png|jpe?g|gif|bmp|svg|webp|emz|wmz)$/i;
+
+// Une pièce compte si elle n'est pas une petite image intégrée (logo de signature…).
+// Outlook Mac marque souvent les PDF ou les fichiers glissés comme « inline » : on les compte.
+function estVraiePJ(a) {
+  if (!a.isInline) return true;
+  if (!EXT_IMAGE.test(a.name || "")) return true;
+  return (a.size || 0) > 100000;
+}
+
+function annoncePJ(sujet, corps) {
+  const texte = normaliser(sujet || "") + "\n" + texteEcrit(corps || "");
+  return MOTS_CLES.some((re) => re.test(texte));
+}
+
+function doitAlerter(sujet, corps, pjs) {
+  return annoncePJ(sujet, corps) && !(pjs || []).some(estVraiePJ);
+}
+
 function onMessageSendHandler(event) {
   const item = Office.context.mailbox.item;
   item.subject.getAsync((resSujet) => {
-    const sujet = resSujet.status === Office.AsyncResultStatus.Succeeded ? resSujet.value || "" : "";
+    const sujet = resSujet.status === Office.AsyncResultStatus.Succeeded ? resSujet.value : "";
     item.body.getAsync(Office.CoercionType.Text, (resCorps) => {
-      if (resCorps.status !== Office.AsyncResultStatus.Succeeded) {
-        event.completed({ allowEvent: true });
-        return;
-      }
-      const texte = normaliser(sujet) + "\n" + texteEcrit(resCorps.value || "");
-      if (!MOTS_CLES.some((re) => re.test(texte))) {
+      if (resCorps.status !== Office.AsyncResultStatus.Succeeded || !annoncePJ(sujet, resCorps.value)) {
         event.completed({ allowEvent: true });
         return;
       }
       item.getAttachmentsAsync((resPJ) => {
-        const pjs = resPJ.status === Office.AsyncResultStatus.Succeeded ? resPJ.value : [];
-        if (pjs.some((a) => !a.isInline)) {
+        if (resPJ.status !== Office.AsyncResultStatus.Succeeded) {
           event.completed({ allowEvent: true });
-        } else {
-          event.completed({
-            allowEvent: false,
-            errorMessage:
-              "Votre mail semble annoncer une pièce jointe (« ci-joint », « PJ », « en annexe »…), mais aucune n'est jointe.",
-          });
+          return;
         }
+        if (!doitAlerter(sujet, resCorps.value, resPJ.value)) {
+          event.completed({ allowEvent: true });
+          return;
+        }
+        event.completed({
+          allowEvent: false,
+          errorMessage:
+            "Votre mail semble annoncer une pièce jointe (« ci-joint », « PJ », « en annexe »…), mais aucune n'est jointe." +
+            " [diag : " + resPJ.value.length + " élément(s) vu(s)]",
+        });
       });
     });
   });
 }
 
-Office.actions.associate("onMessageSendHandler", onMessageSendHandler);
+if (typeof Office !== "undefined") {
+  Office.actions.associate("onMessageSendHandler", onMessageSendHandler);
+}
+if (typeof module !== "undefined") {
+  module.exports = { annoncePJ, doitAlerter, estVraiePJ, texteEcrit };
+}
