@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
+  xsi:type="MailApp">
+  <Id>b6bab8c9-4ee1-409c-985b-bd1fb149e065</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Hadrien Rose</ProviderName>
+  <DefaultLocale>fr-FR</DefaultLocale>
+  <DisplayName DefaultValue="Vérif pièce jointe"/>
+  <Description DefaultValue="Avertit avant l'envoi si le mail annonce une pièce jointe absente."/>
+  <IconUrl DefaultValue="https://hadrien-rose.github.io/outlook-pj-check/assets/icon-64.png"/>
+  <HighResolutionIconUrl DefaultValue="https://hadrien-rose.github.io/outlook-pj-check/assets/icon-128.png"/>
+  <SupportUrl DefaultValue="https://hadrien-rose.github.io/outlook-pj-check/commands.html"/>
+  <AppDomains><AppDomain>https://hadrien-rose.github.io/outlook-pj-check</AppDomain></AppDomains>
+  <Hosts><Host Name="Mailbox"/></Hosts>
+  <Requirements><Sets><Set Name="Mailbox" MinVersion="1.1"/></Sets></Requirements>
+  <FormSettings>
+    <Form xsi:type="ItemRead"><DesktopSettings><SourceLocation DefaultValue="https://hadrien-rose.github.io/outlook-pj-check/commands.html"/><RequestedHeight>250</RequestedHeight></DesktopSettings></Form>
+  </FormSettings>
+  <Permissions>ReadWriteMailbox</Permissions>
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit"/>
+  </Rule>
+  <DisableEntityHighlighting>false</DisableEntityHighlighting>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+      <Requirements><bt:Sets DefaultMinVersion="1.12"><bt:Set Name="Mailbox"/></bt:Sets></Requirements>
+      <Hosts>
+        <Host xsi:type="MailHost">
+          <Runtimes>
+            <Runtime resid="Runtime.Url">
+              <Override type="javascript" resid="JS.Url"/>
+            </Runtime>
+          </Runtimes>
+          <DesktopFormFactor>
+            <FunctionFile resid="Runtime.Url"/>
+            <ExtensionPoint xsi:type="LaunchEvent">
+              <LaunchEvents>
+                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler" SendMode="PromptUser"/>
+              </LaunchEvents>
+              <SourceLocation resid="Runtime.Url"/>
+            </ExtensionPoint>
+          </DesktopFormFactor>
+        </Host>
+      </Hosts>
+      <Resources>
+        <bt:Images>
+          <bt:Image id="Icon.16" DefaultValue="https://hadrien-rose.github.io/outlook-pj-check/assets/icon-16.png"/>
+        </bt:Images>
+        <bt:Urls>
+          <bt:Url id="Runtime.Url" DefaultValue="https://hadrien-rose.github.io/outlook-pj-check/commands.html"/>
+          <bt:Url id="JS.Url" DefaultValue="https://hadrien-rose.github.io/outlook-pj-check/launchevent.js"/>
+        </bt:Urls>
+      </Resources>
+    </VersionOverrides>
+  </VersionOverrides>
+</OfficeApp>
