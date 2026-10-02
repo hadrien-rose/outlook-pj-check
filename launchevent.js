@@ -59,35 +59,48 @@ function doitAlerter(sujet, corps, pjs) {
 }
 
 function onMessageSendHandler(event) {
-  const item = Office.context.mailbox.item;
-  item.subject.getAsync((resSujet) => {
-    const sujet = resSujet.status === Office.AsyncResultStatus.Succeeded ? resSujet.value : "";
-    item.body.getAsync(Office.CoercionType.Text, (resCorps) => {
-      if (resCorps.status !== Office.AsyncResultStatus.Succeeded || !annoncePJ(sujet, resCorps.value)) {
-        event.completed({ allowEvent: true });
-        return;
-      }
-      item.getAttachmentsAsync((resPJ) => {
-        if (resPJ.status !== Office.AsyncResultStatus.Succeeded) {
-          event.completed({ allowEvent: true });
+  // Garantit une seule réponse à Outlook, et laisse partir le mail en cas d'erreur.
+  let fini = false;
+  const terminer = (opts) => {
+    if (fini) return;
+    fini = true;
+    event.completed(opts);
+  };
+  const laisserPartir = () => terminer({ allowEvent: true });
+  const proteger = (fn) => (...args) => {
+    try { fn(...args); } catch (e) { laisserPartir(); }
+  };
+
+  try {
+    const item = Office.context.mailbox.item;
+    item.subject.getAsync(proteger((resSujet) => {
+      const sujet = resSujet.status === Office.AsyncResultStatus.Succeeded ? resSujet.value : "";
+      item.body.getAsync(Office.CoercionType.Text, proteger((resCorps) => {
+        if (resCorps.status !== Office.AsyncResultStatus.Succeeded || !annoncePJ(sujet, resCorps.value)) {
+          laisserPartir();
           return;
         }
-        if (!doitAlerter(sujet, resCorps.value, resPJ.value)) {
-          event.completed({ allowEvent: true });
-          return;
-        }
-        event.completed({
-          allowEvent: false,
-          errorMessage:
-            "Votre mail semble annoncer une pièce jointe (« ci-joint », « PJ », « en annexe »…), mais aucune n'est jointe." +
-            " [diag : " + resPJ.value.length + " élément(s) vu(s)]",
-        });
-      });
-    });
-  });
+        item.getAttachmentsAsync(proteger((resPJ) => {
+          if (resPJ.status !== Office.AsyncResultStatus.Succeeded || !doitAlerter(sujet, resCorps.value, resPJ.value)) {
+            laisserPartir();
+            return;
+          }
+          terminer({
+            allowEvent: false,
+            errorMessage:
+              "Votre mail semble annoncer une pièce jointe (« ci-joint », « PJ », « en annexe »…), mais aucune n'est jointe.",
+          });
+        }));
+      }));
+    }));
+  } catch (e) {
+    laisserPartir();
+  }
 }
 
 if (typeof Office !== "undefined") {
+  // Indispensable : sans onReady, Outlook (Mac, web, nouveau Outlook Windows) n'appelle jamais le gestionnaire.
+  Office.onReady();
   Office.actions.associate("onMessageSendHandler", onMessageSendHandler);
 }
 if (typeof module !== "undefined") {
